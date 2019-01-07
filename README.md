@@ -39,6 +39,11 @@ In the application config file (PdfScribe.exe.config), there are the following s
 * Allow selection of page sizes other than default
 * Watermarking output
 
- 
+# Set output directory as redmon argument
 
+1. Open Pdf Scribe Printer settings: `rundll32 printui.dll PrintUIEntry /p /n "PDF Scribe"` (CMD must be started as **administrator**)
+2. Open port configuration
+3. Add `--dir`. Sample: `--dir C:\PrinterOutput\`
+
+> The directory must be accessible for the printing machine.
 

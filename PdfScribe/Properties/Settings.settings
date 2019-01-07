@@ -2,14 +2,14 @@
 <SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="PdfScribe.Properties" GeneratedClassName="Settings">
   <Profiles />
   <Settings>
-    <Setting Name="OutputFile" Type="System.String" Scope="Application">
-      <Value Profile="(Default)">%UserProfile%\PDFSCRIBE.PDF</Value>
-    </Setting>
     <Setting Name="AskUserForOutputFilename" Type="System.Boolean" Scope="Application">
       <Value Profile="(Default)">False</Value>
     </Setting>
     <Setting Name="OpenAfterCreating" Type="System.Boolean" Scope="Application">
       <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="OutputDirectory" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">%UserProfile%\PDFSCRIBE\</Value>
     </Setting>
   </Settings>
 </SettingsFile>

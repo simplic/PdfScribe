@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -16,9 +17,9 @@ namespace PdfScribe
 
 
         #region Message constants
-        
+
         const string errorDialogCaption = "PDF Scribe"; // Error taskdialog caption text
-        
+
         const string errorDialogInstructionPDFGeneration = "There was a PDF generation error.";
         const string errorDialogInstructionCouldNotWrite = "Could not create the output file.";
         const string errorDialogInstructionUnexpectedError = "There was an internal error. Enable tracing for details.";
@@ -37,11 +38,14 @@ namespace PdfScribe
 
         #endregion
 
-        static TraceSource logEventSource = new TraceSource(traceSourceName);
+        private static TraceSource logEventSource = new TraceSource(traceSourceName);
+        private static string[] arguments;
 
         [STAThread]
         static void Main(string[] args)
         {
+            arguments = args;
+
             // Install the global exception handler
             AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(Application_UnhandledException);
 
@@ -61,8 +65,6 @@ namespace PdfScribe
 
                 if (GetPdfOutputFilename(ref outputFilename))
                 {
-                    // Remove the existing PDF file if present
-                    File.Delete(outputFilename);
                     // Only set absolute minimum parameters, let the postscript input
                     // dictate as much as possible
                     String[] ghostScriptArguments = { "-dBATCH", "-dNOPAUSE", "-dSAFER",  "-sDEVICE=pdfwrite",
@@ -76,7 +78,7 @@ namespace PdfScribe
             {
                 // We couldn't delete, or create a file
                 // because it was in use
-                logEventSource.TraceEvent(TraceEventType.Error, 
+                logEventSource.TraceEvent(TraceEventType.Error,
                                           (int)TraceEventType.Error,
                                           errorDialogInstructionCouldNotWrite +
                                           Environment.NewLine +
@@ -91,8 +93,8 @@ namespace PdfScribe
                 // because it was set to readonly
                 // or couldn't create a file
                 // because of permissions issues
-                logEventSource.TraceEvent(TraceEventType.Error, 
-                                          (int)TraceEventType.Error, 
+                logEventSource.TraceEvent(TraceEventType.Error,
+                                          (int)TraceEventType.Error,
                                           errorDialogInstructionCouldNotWrite +
                                           Environment.NewLine +
                                           "Exception message: " + unauthorizedEx.Message);
@@ -105,8 +107,8 @@ namespace PdfScribe
             catch (ExternalException ghostscriptEx)
             {
                 // Ghostscript error
-                logEventSource.TraceEvent(TraceEventType.Error, 
-                                          (int)TraceEventType.Error, 
+                logEventSource.TraceEvent(TraceEventType.Error,
+                                          (int)TraceEventType.Error,
                                           String.Format(errorDialogTextGhostScriptConversion, ghostscriptEx.ErrorCode.ToString()) +
                                           Environment.NewLine +
                                           "Exception message: " + ghostscriptEx.Message);
@@ -121,7 +123,7 @@ namespace PdfScribe
                 {
                     File.Delete(standardInputFilename);
                 }
-                catch 
+                catch
                 {
                     logEventSource.TraceEvent(TraceEventType.Warning,
                                               (int)TraceEventType.Warning,
@@ -147,73 +149,63 @@ namespace PdfScribe
                                 errorDialogInstructionUnexpectedError);
         }
 
-        static bool GetPdfOutputFilename(ref String outputFile)
+        private static bool GetPdfOutputFilename(ref String outputFile)
         {
             bool filenameRetrieved = false;
-            switch (Properties.Settings.Default.AskUserForOutputFilename)
+            if (Properties.Settings.Default.AskUserForOutputFilename)
             {
-                case (true) :
-                    using (SetOutputFilename dialogOwner = new SetOutputFilename())
+                using (SetOutputFilename dialogOwner = new SetOutputFilename())
+                {
+                    dialogOwner.TopMost = true;
+                    dialogOwner.TopLevel = true;
+                    dialogOwner.Show(); // Form won't actually show - Application.Run() never called
+                                        // but having a topmost/toplevel owner lets us bring the SaveFileDialog to the front
+                    dialogOwner.BringToFront();
+                    using (SaveFileDialog pdfFilenameDialog = new SaveFileDialog())
                     {
-                        dialogOwner.TopMost = true;
-                        dialogOwner.TopLevel = true;
-                        dialogOwner.Show(); // Form won't actually show - Application.Run() never called
-                                            // but having a topmost/toplevel owner lets us bring the SaveFileDialog to the front
-                        dialogOwner.BringToFront();
-                        using (SaveFileDialog pdfFilenameDialog = new SaveFileDialog())
+                        pdfFilenameDialog.AddExtension = true;
+                        pdfFilenameDialog.AutoUpgradeEnabled = true;
+                        pdfFilenameDialog.CheckPathExists = true;
+                        pdfFilenameDialog.Filter = "pdf files (*.pdf)|*.pdf";
+                        pdfFilenameDialog.ShowHelp = false;
+                        pdfFilenameDialog.Title = "PDF Scribe - Set output filename";
+                        pdfFilenameDialog.ValidateNames = true;
+                        if (pdfFilenameDialog.ShowDialog(dialogOwner) == DialogResult.OK)
                         {
-                            pdfFilenameDialog.AddExtension = true;
-                            pdfFilenameDialog.AutoUpgradeEnabled = true;
-                            pdfFilenameDialog.CheckPathExists = true;
-                            pdfFilenameDialog.Filter = "pdf files (*.pdf)|*.pdf";
-                            pdfFilenameDialog.ShowHelp = false;
-                            pdfFilenameDialog.Title = "PDF Scribe - Set output filename";
-                            pdfFilenameDialog.ValidateNames = true;
-                            if (pdfFilenameDialog.ShowDialog(dialogOwner) == DialogResult.OK)
-                            {
-                                outputFile = pdfFilenameDialog.FileName;
-                                filenameRetrieved = true;
-                            }
+                            outputFile = pdfFilenameDialog.FileName;
+                            filenameRetrieved = true;
                         }
-                        dialogOwner.Close();
                     }
-                    break;
-                default:
-                    outputFile = GetOutputFilename();
-                    filenameRetrieved = true;
-                    break;
+                    dialogOwner.Close();
+                }
             }
+            else
+            {
+                outputFile = GetOutputFilename();
+                filenameRetrieved = true;
+            }
+
             return filenameRetrieved;
 
         }
 
         private static String GetOutputFilename()
         {
+            var dir = Properties.Settings.Default.OutputDirectory;
 
-            String outputFilename = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), defaultOutputFilename);
-            if (!String.IsNullOrEmpty(Properties.Settings.Default.OutputFile) &&
-                !String.IsNullOrWhiteSpace(Properties.Settings.Default.OutputFile))
+            if (arguments != null && arguments.Length > 1 && arguments.Contains("--dir"))
             {
-                if (IsFilePathValid(Properties.Settings.Default.OutputFile))
-                {
-                    outputFilename = Properties.Settings.Default.OutputFile;
-                }
-                else
-                {
-                    if (IsFilePathValid(Environment.ExpandEnvironmentVariables(Properties.Settings.Default.OutputFile)))
-                    {
-                        outputFilename = Environment.ExpandEnvironmentVariables(Properties.Settings.Default.OutputFile);
-                    }
-                }
+                var index = Array.IndexOf(arguments, "--dir");
+                dir = arguments[index + 1];
             }
-            else
-            {
-                logEventSource.TraceEvent(TraceEventType.Warning,
-                                          (int)TraceEventType.Warning,
-                                          String.Format("Using default output filename {0}",
-                                                        outputFilename));
-            }
-            return outputFilename;
+
+            if (dir.Contains("%"))
+                dir = Environment.ExpandEnvironmentVariables(dir);
+
+            if (!dir.EndsWith("\\"))
+                dir += "\\";
+
+            return dir + GenerateUniqueFileName();
         }
 
         static bool IsFilePathValid(String filePath)
@@ -240,6 +232,13 @@ namespace PdfScribe
                                           "Output filename is longer than 260 characters, or blank.");
             }
             return pathIsValid;
+        }
+
+        private static string GenerateUniqueFileName()
+        {
+            var now = DateTime.Now.ToFileTimeUtc();
+            var hash = Guid.NewGuid().ToString().Substring(0, 8);
+            return $"{now}-{hash}.pdf";
         }
 
         /// <summary>
@@ -273,7 +272,7 @@ namespace PdfScribe
                             MessageBoxIcon.Error,
                             MessageBoxDefaultButton.Button1,
                             MessageBoxOptions.DefaultDesktopOnly);
-            
+
         }
     }
 }
