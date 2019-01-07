@@ -43,7 +43,7 @@ In the application config file (PdfScribe.exe.config), there are the following s
 
 1. Open Pdf Scribe Printer settings: `rundll32 printui.dll PrintUIEntry /p /n "PDF Scribe"` (CMD must be started as **administrator**)
 2. Open port configuration
-3. Add `--dir`. Sample: `--dir C:\PrinterOutput\`
+3. Add `--dir` as argument. Sample: `--dir C:\PrinterOutput\`
 
 > The directory must be accessible for the printing machine.
 
