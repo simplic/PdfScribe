@@ -45,5 +45,5 @@ In the application config file (PdfScribe.exe.config), there are the following s
 2. Open port configuration
 3. Add `--dir` as argument. Sample: `--dir C:\PrinterOutput\`
 
-> The directory must be accessible for the printing machine.
+> The directory must be accessible on the printing machine.
 
